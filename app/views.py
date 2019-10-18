@@ -1,7 +1,7 @@
 from app import app, lm
 from flask import request, redirect, render_template, url_for, flash
-from flask.ext.login import login_user, logout_user, login_required
-from .forms import LoginForm
+from flask_login import login_user, logout_user, login_required
+from .forms import LoginForm, RegistrationForm
 from .user import User
 
 
@@ -23,6 +23,23 @@ def login():
         flash("Wrong username or password!", category='error')
     return render_template('login.html', title='login', form=form)
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    form = RegistrationForm()
+    if request.method == 'POST' and form.validate_on_submit():
+        collection = MongoClient()["blog"]["users"]
+        username = form.username.data
+        password = form.password.data
+        password_hash = generate_password_hash(password, method='pbkdf2:sha256')
+        try:
+            collection.insert_one({"_id": username, "password": password_hash})
+            flash("User created.", category='success')
+            return redirect(url_for('login'))
+        except DuplicateKeyError:
+            flash("User already present in Database.", category='warning')
+            return redirect(url_for('register'))
+
+    return render_template('register.html', title='register', form=form)
 
 @app.route('/logout')
 def logout():
